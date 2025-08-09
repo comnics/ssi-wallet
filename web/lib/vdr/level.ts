@@ -17,13 +17,13 @@ export function getVdr(): Level<string, string> {
 }
 
 export async function putDid(did: string, docJson: string): Promise<void> {
-  const key = `did:${did}`;
+  const key = did.startsWith("did:") ? did : `did:${did}`;
   const vdr = getVdr();
   await vdr.put(key, docJson);
 }
 
 export async function getDid(did: string): Promise<string | null> {
-  const key = `did:${did}`;
+  const key = did.startsWith("did:") ? did : `did:${did}`;
   const vdr = getVdr();
   try {
     const value = await vdr.get(key);
