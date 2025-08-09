@@ -1,0 +1,126 @@
+당신은 W3C DID 표준에 정통한 시니어 풀스택 엔지니어입니다. 아래 요구사항을 100% 충족하는 Next.js 14(앱 라우터) + TypeScript 기반 SSI DID-Wallet 웹앱을 생성하세요. 프론트와 백엔드는 동일 리포 내에 구현하고, VDR은 LevelDB를 사용합니다. 코드는 안전하고 읽기 쉽고 검사 가능한 형태로 작성하며, 비밀키는 절대 서버로 전송하지 마세요.
+
+github
+- 매 작업마다 commit하고 push 해주세요.
+
+기술 스택/설정
+- Next.js 14 App Router, React 18, TypeScript, Node.js 20
+- 스타일: Tailwind CSS
+- 데이터 검증: zod
+- 클라이언트 암호학: @noble/ed25519
+- 멀티포맷: multiformats (multibase, varint, base58btc)
+- 로컬 저장: idb-keyval(IndexedDB), localStorage
+- 서버 VDR: level (데이터 경로 `./data/vdr`)
+- 유틸: date-fns(optional)
+- ESLint/Prettier 설정 포함
+
+DID 메서드 및 표준
+- did-method: `ssikorea`
+- 표준/제안 준수: W3C DID Core v1.0, Ed25519VerificationKey2020(publicKeyMultibase)
+- method-specific-id: ed25519 public key로부터 다음 방식으로 생성
+  - fingerprint = `z` + base58btc( multicodec-prefix(0xED 0x01) || raw-ed25519-public-key )
+  - DID = `did:ssikorea:<fingerprint>`
+  - 기본 키 식별자: `did:ssikorea:<fingerprint>#key-1`
+
+기능 요구사항
+1) 최초 앱 실행 시 DID 미보유 상태
+   - 헤더에 “DID 미생성” 표기
+   - 메인에 온보딩 폼(이름, 생년월일 YYYY-MM-DD, “DID 생성” 버튼)
+2) DID 생성(클라이언트)
+   - 이름/생년월일 입력값 zod로 검증
+   - @noble/ed25519로 Ed25519 키쌍 생성(보안 난수)
+   - public key → multicodec(ed25519-pub) 프리픽스(0xED 0x01) 붙인 뒤 base58btc로 multibase ‘z’ 인코딩 → `publicKeyMultibase` 산출
+   - DID Document 초안 생성:
+     {
+       "@context": "https://www.w3.org/ns/did/v1",
+       "id": "did:ssikorea:pending",
+       "verificationMethod": [{
+         "id": "#key-1",
+         "type": "Ed25519VerificationKey2020",
+         "controller": "did:ssikorea:pending",
+         "publicKeyMultibase": "<computed>"
+       }],
+       "authentication": ["#key-1"],
+       "assertionMethod": ["#key-1"]
+     }
+   - 서버에 POST `/api/did/register` 요청. PII(name, dob)는 서버로 보내지 않음.
+   - 응답으로 `did`, 최종 `didDocument` 수신 → 헤더에 DID 표시
+   - 개인키 보관: 이름+생년월일에서 파생한 키(웹크립토 PBKDF2 또는 Argon2id)로 AES-GCM 암호화 후 IndexedDB 저장. salt/iv/version 메타 포함. 로컬스토리지에는 `wallet.did`만 저장.
+3) DID 생성(서버)
+   - 입력: `{ publicKeyMultibase: string }`
+   - multibase 디코드 → multicodec 확인(ed25519-pub)
+   - fingerprint 및 `did:ssikorea:<fingerprint>` 생성
+   - 최종 DID Document 구성: 위 초안에서 `id`, `controller`를 최종 DID로 교체, `created/updated`(ISO8601) 추가
+   - LevelDB(`./data/vdr`)에 `did`를 키로 DID Document 저장(JSON). 네임스페이스 prefix(`did:`) 사용 권장.
+   - 응답: `{ did, didDocument }`
+4) DID 해석(서버)
+   - GET `/api/did/[did]` → LevelDB 조회하여 DID Document 반환(없으면 404)
+5) UX
+   - 헤더: 현재 DID 또는 “DID 미생성”
+   - 온보딩: 이름, 생년월일 입력 → “DID 생성”
+   - 생성/저장 중 로딩 상태, 에러 메시지, 재시도
+   - 새로고침해도 헤더에 DID 유지(로컬스토리지에서 복원)
+
+폴더/파일 구조(예시)
+- `app/layout.tsx`, `app/page.tsx` (온보딩/홈)
+- `app/api/did/register/route.ts` (POST)
+- `app/api/did/[did]/route.ts` (GET)
+- `components/DidHeader.tsx` (상단 DID 표시)
+- `lib/did/ssikorea.ts` (fingerprint, DID, DID Document 유틸)
+- `lib/crypto/keys.ts` (키 생성, multibase 변환)
+- `lib/crypto/keystore.ts` (AES-GCM 암복호화, IndexedDB 저장)
+- `lib/vdr/level.ts` (Level 인스턴스, put/get)
+- `types/did.ts` (TypeScript 타입: DidDocument 등)
+- `styles/globals.css`, `tailwind.config.ts`
+
+API 계약
+- POST `/api/did/register`
+  - req: `{ publicKeyMultibase: string }`
+  - 201: `{ did: string, didDocument: DidDocument }`
+  - 400/409/500 에러 명세 포함
+- GET `/api/did/[did]`
+  - 200: `DidDocument`
+  - 404: `{ error: "DID not found" }`
+
+TypeScript 타입(요지)
+- interface DidDocument {
+    "@context": "https://www.w3.org/ns/did/v1" | (string | object)[];
+    id: string;
+    verificationMethod: Array<{
+      id: string;
+      type: "Ed25519VerificationKey2020";
+      controller: string;
+      publicKeyMultibase: string;
+    }>;
+    authentication?: string[];
+    assertionMethod?: string[];
+    created?: string;
+    updated?: string;
+  }
+
+핵심 구현 포인트
+- multicodec prefix: 0xED 0x01 (varint 인코딩), base58btc, multibase 접두어 `z`
+- 서버는 입력된 publicKeyMultibase를 검증하고, DID를 서버에서 결정
+- 개인키는 내보내거나 서버로 전송하지 않음. 모든 로그에서 비밀값 마스킹.
+- LevelDB는 프로세스 시작 시 싱글턴으로 열고(graceful close), 키 스페이스: `did:<id>`
+- 에러 처리는 사용자 친화적 UI/HTTP 코드 정합성 유지
+
+보안/품질
+- 입력 검증(zod), CORS 안전 기본 설정, 헤더 보안(Next.js 기본 응용)
+- 서버 레이트 리밋(간단한 토큰버킷 또는 요청/분 제한)
+- 단위 테스트(핵심 유틸: DID 파생, multibase 변환), 간단한 라우트 테스트
+- ESLint/Prettier 무오류
+
+수행 기준(DoD)
+- 최초 방문 시 온보딩 → “DID 생성” 후 헤더에 DID 표시
+- 새로고침 후에도 DID 유지
+- `/api/did/[did]`로 DID Document 조회 성공
+- `./data/vdr`에 LevelDB 파일 생성 및 DID 저장 확인
+- 린트/빌드/개발 서버 실행 가능
+
+설치 지시
+- 의존성: @noble/ed25519, multiformats, level, idb-keyval, zod, tailwindcss, postcss, autoprefixer
+- 스크립트: dev/build/lint 준비
+- README에 실행 방법, 보안 주의, 구조 설명 간단 기입
+
+이 명세에 따라 모든 파일을 생성/수정하고, 완전한 동작 데모를 제공하세요. 설명 과잉 없이, 작동하는 코드와 최소한의 주석만 포함하세요.
