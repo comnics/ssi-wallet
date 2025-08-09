@@ -1,7 +1,7 @@
 // POST /api/did/register
 // All comments in English per user rule
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { base58btc } from "multiformats/bases/base58";
 import { DidDocument, RegisterDidRequestBody, RegisterDidResponseBody } from "@/types/did";

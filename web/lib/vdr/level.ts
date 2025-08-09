@@ -27,9 +27,10 @@ export async function getDid(did: string): Promise<string | null> {
   try {
     const value = await vdr.get(key);
     return value;
-  } catch (err: unknown) {
-    if ((err as any)?.code === "LEVEL_NOT_FOUND") return null;
-    throw err;
+  } catch (err) {
+    const e = err as { code?: string };
+    if (e && e.code === "LEVEL_NOT_FOUND") return null;
+    throw err as Error;
   }
 }
 

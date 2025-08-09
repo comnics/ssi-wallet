@@ -1,13 +1,15 @@
 // GET /api/did/[did]
 // All comments in English per user rule
 
-import { NextRequest } from "next/server";
 import { getDid } from "@/lib/vdr/level";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { did: string } }
-) {
+export const runtime = "nodejs";
+
+type RouteParams = { params: { did: string } };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function GET(_req: Request, ctx: any) {
+  const { params } = ctx;
   const did = decodeURIComponent(params.did);
   const stored = await getDid(did);
   if (!stored)

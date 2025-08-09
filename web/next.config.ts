@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: [
+    "level",
+    "classic-level",
+    "classic-leveldown",
+    "node-gyp-build",
+  ],
 };
 
 export default nextConfig;

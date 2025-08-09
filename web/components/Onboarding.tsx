@@ -4,10 +4,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
-import * as ed25519 from "@noble/ed25519";
 import { generateEd25519KeyPair } from "@/lib/crypto/keys";
 import { encryptAndStorePrivateKey } from "@/lib/crypto/keystore";
-import { DidDocument, RegisterDidResponseBody } from "@/types/did";
+import { RegisterDidResponseBody } from "@/types/did";
 
 const formSchema = z.object({
   name: z.string().min(1, "이름은 필수입니다"),
@@ -29,12 +28,12 @@ export default function Onboarding() {
     setError(null);
     const parsed = formSchema.safeParse({ name, dob });
     if (!parsed.success) {
-      setError(parsed.error.errors[0]?.message || "입력이 올바르지 않습니다");
+      setError(parsed.error.issues[0]?.message || "입력이 올바르지 않습니다");
       return;
     }
     setLoading(true);
     try {
-      const { publicKey, privateKey, publicKeyMultibase } = await generateEd25519KeyPair();
+      const { privateKey, publicKeyMultibase } = await generateEd25519KeyPair();
 
       // Draft doc sent implicitly as method decision; server finalizes
       const resp = await fetch("/api/did/register", {
