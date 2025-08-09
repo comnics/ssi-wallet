@@ -14,6 +14,12 @@ export default function DidHeader() {
     } catch {
       setDid(null);
     }
+    const onUpdate = (e: Event) => {
+      const custom = e as CustomEvent<string>;
+      setDid(custom.detail || null);
+    };
+    window.addEventListener("wallet:did-updated", onUpdate as EventListener);
+    return () => window.removeEventListener("wallet:did-updated", onUpdate as EventListener);
   }, []);
 
   return (

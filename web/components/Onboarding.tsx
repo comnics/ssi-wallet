@@ -49,6 +49,9 @@ export default function Onboarding() {
       const passphrase = derivePassphrase(name, dob);
       await encryptAndStorePrivateKey("wallet.key.v1", privateKey, passphrase);
       localStorage.setItem("wallet.did", data.did);
+      try {
+        window.dispatchEvent(new CustomEvent("wallet:did-updated", { detail: data.did }));
+      } catch {}
       setDid(data.did);
     } catch (e: unknown) {
       setError((e as Error).message);
