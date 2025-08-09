@@ -9,7 +9,8 @@ let db: Level<string, string> | null = null;
 
 export function getVdr(): Level<string, string> {
   if (db) return db;
-  const dataDir = path.resolve(process.cwd(), "data", "vdr");
+  // Place LevelDB under repository root ./data/vdr
+  const dataDir = path.resolve(process.cwd(), "..", "data", "vdr");
   fs.mkdirSync(dataDir, { recursive: true });
   db = new Level<string, string>(dataDir, { valueEncoding: "utf8" });
   return db;
