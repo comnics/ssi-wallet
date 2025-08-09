@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   const { publicKeyMultibase } = parse.data;
   try {
     if (!publicKeyMultibase.startsWith("z")) throw new Error("invalid multibase");
-    const decoded = base58btc.decode(publicKeyMultibase.slice(1));
+    const decoded = base58btc.decode(publicKeyMultibase);
     if (decoded.length < 2) throw new Error("invalid multicodec");
     const prefix0 = decoded[0];
     const prefix1 = decoded[1];

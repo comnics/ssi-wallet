@@ -5,8 +5,6 @@ import { getDid } from "@/lib/vdr/level";
 
 export const runtime = "nodejs";
 
-type RouteParams = { params: { did: string } };
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function GET(_req: Request, ctx: any) {
   const { params } = ctx;
